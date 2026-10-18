@@ -20,3 +20,13 @@ tool: no server code, no accounts, no network calls, no third-party scripts, fon
 `frame-ancestors 'none'` (or `X-Frame-Options: DENY`), `X-Content-Type-Options: nosniff`, HSTS, `Permissions-Policy` (camera,
 microphone, geolocation off), and a real CSP header (same policy as the meta tag). GitHub Pages allows none of these; a self-hosted
 nginx can set all of them.
+
+## Addendum: features added after the first review (also reviewed)
+| Area | Notes |
+|---|---|
+| Project files (Open) | Untrusted input. Size cap 250 MB; JSON only; every field copied through an allow-list (`cleanPanel`, `cleanSettings`): numbers clamped, enums checked, colours must match `#rrggbb`, strings length-limited. Embedded images must be a `data:` URL of JPEG, PNG, WebP, GIF, AVIF or BMP and are re-decoded and re-checked; SVG and anything else is dropped and reported. Covered by tests with hostile files. |
+| Autosave (IndexedDB) | Stored data is read back through the same allow-lists, so tampered storage cannot inject values. Local to the browser; "New project" clears it. |
+| Text pages / captions | Drawn with canvas `fillText` only; never written into HTML. Tested with HTML in captions, text and project files. |
+| Exports | PDF and ZIP are built in the browser from numbers and bytes the app generated; no user strings are written into them except fixed file names. |
+| Images | Photos above 4096 px are downscaled on load; JPEG/PNG/WebP only are stored. EXIF is not carried into exports. |
+| CSP | Unchanged (no inline code, no outside connections). New code needed no relaxation. |
