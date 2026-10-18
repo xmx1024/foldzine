@@ -39,3 +39,5 @@ ol{padding-left:20px}
 #status{min-height:1.4em;font-size:13px;color:var(--mut)}
 input[type=file]{display:none}
 .mb10{margin-bottom:10px}.mb8{margin-bottom:8px}.light{font-weight:400;color:var(--mut)}.red{color:#d6381f}
+
+ul{padding-left:20px}li{margin:4px 0}
