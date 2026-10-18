@@ -275,3 +275,17 @@ test('touch: a swipe over the preview does not swap pages, a tap opens the edito
   expect(d.h).toBeLessThanOrEqual(d.vh); expect(d.canvasH).toBeLessThanOrEqual(d.vh * 0.47);
   await ctx.close();
 });
+
+test('feedback link opens a pre-filled GitHub issue in a new tab and sends nothing from the zine', async ({ page }) => {
+  await page.evaluate(() => { panels[0].mode = 'text'; panels[0].text = 'PRIVATE-TEXT-123'; });
+  for (const id of ['feedback', 'feedback2']) {
+    const a = page.locator('#' + id);
+    await expect(a).toHaveAttribute('target', '_blank'); await expect(a).toHaveAttribute('rel', /noopener/);
+    await page.evaluate(() => { document.getElementById('feedback').href = feedbackURL(); });
+    const href = await a.getAttribute('href'), u = new URL(href);
+    expect(u.origin + u.pathname).toBe('https://github.com/xmx1024/foldzine/issues/new');
+    expect(u.searchParams.get('labels')).toBe('feedback');
+    expect(u.searchParams.get('body')).toContain('App version: ');
+    expect(href).not.toContain('PRIVATE-TEXT-123');
+  }
+});

@@ -30,3 +30,8 @@ nginx can set all of them.
 | Exports | PDF and ZIP are built in the browser from numbers and bytes the app generated; no user strings are written into them except fixed file names. |
 | Images | Photos above 4096 px are downscaled on load; JPEG/PNG/WebP only are stored. EXIF is not carried into exports. |
 | CSP | Unchanged (no inline code, no outside connections). New code needed no relaxation. |
+
+## Addendum: feedback button
+A plain link (`target=_blank`, `rel=noopener noreferrer`) to a pre-filled GitHub issue. The URL carries only the app version, the browser
+user-agent and the window size; a test confirms none of the user's text or pictures appear in it. No script request leaves the page (CSP
+`connect-src 'self'` is unchanged); the user sees the issue text on GitHub before submitting.

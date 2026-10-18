@@ -2,6 +2,7 @@
 // Fold Zine: everything runs in the browser. No network calls; see SECURITY-REVIEW.md.
 
 // ---------- constants ----------
+const APP_VERSION = '2026.10.18';
 const N = 8;
 const PAPER = { letter: [11, 8.5], a4: [11.69, 8.27], a3: [16.54, 11.69] };   // landscape inches
 // sheet layout: 4 columns x 2 rows; the top row is printed upside down
@@ -561,6 +562,13 @@ $('zip').addEventListener('click', async () => {
     download(makeZip(files), 'zine-pages.zip'); status('Saved zine-pages.zip (8 pictures, one per page, upright)');
   } catch (e) { status(e.message); }
 });
+
+// ---------- feedback: opens a pre-filled GitHub issue in a new tab; only the version and browser are included, never the zine ----------
+function feedbackURL() {
+  const body = 'What happened or what would help?\n\n\nWhat did you expect?\n\n\nSteps to reproduce (if it is a bug):\n\n\n---\nApp version: ' + APP_VERSION + '\nBrowser: ' + navigator.userAgent + '\nScreen: ' + innerWidth + 'x' + innerHeight + '\n(Please do not attach private pictures.)';
+  return 'https://github.com/xmx1024/foldzine/issues/new?labels=feedback&title=' + encodeURIComponent('Feedback: ') + '&body=' + encodeURIComponent(body);
+}
+['feedback', 'feedback2'].forEach(id => { const a = $(id); if (a) a.href = feedbackURL(); });
 
 // ---------- start ----------
 buildGrid();

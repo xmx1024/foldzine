@@ -110,3 +110,7 @@ main,header,footer{max-width:1600px}
 .chip{font-size:10px;padding:0 6px;margin-left:4px}
 
 dialog{max-height:92vh;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+
+header.top .fbtn{margin-left:auto;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 12px;text-decoration:none;font-size:14px}
+header.top .fbtn:hover{border-color:var(--ink)}
+footer a{color:var(--acc)}

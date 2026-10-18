@@ -1,5 +1,5 @@
 // Offline support. Network-first: online visitors always get the latest files; the cache is only the offline fallback.
-const CACHE = 'foldzine-v8';
+const CACHE = 'foldzine-v9';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'icon.svg', 'apple-touch-icon.png'];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
