@@ -1,5 +1,7 @@
 # Fold Zine
 
+Live at https://zine.systm32.xyz (GitHub Pages).
+
 A small static web app that turns up to eight pictures into a printable one-sheet, 8-page folded zine.
 Runs entirely in the browser (no server code, no uploads, no accounts) and works offline after the first load.
 
