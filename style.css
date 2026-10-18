@@ -51,7 +51,11 @@ dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);co
 dialog::backdrop{background:rgba(0,0,0,.55)}
 .ed-grid{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:16px}
 @media (max-width:700px){.ed-grid{grid-template-columns:1fr}}
-#edCanvas{width:100%;height:auto;border:1px solid var(--line);border-radius:8px;background:#fff;touch-action:none;cursor:grab}
+#edCanvas{display:block;width:auto;max-width:100%;max-height:46vh;height:auto;margin:0 auto;border:1px solid var(--line);border-radius:8px;background:#fff;touch-action:pan-y;cursor:grab}
+#edCanvas.moving{touch-action:none}
+#edCanvas.textpage{touch-action:auto;cursor:default}
+.touchonly{display:none}@media (pointer:coarse){.touchonly{display:inline-flex}}
+.dpad button{min-width:44px}
 .ed-ctl{display:flex;flex-direction:column;gap:10px}
 fieldset.seg{border:1px solid var(--line);border-radius:8px;display:flex;flex-direction:column;gap:4px;padding:6px 10px}
 fieldset.seg legend{font-size:12px;color:var(--mut);padding:0 4px}
@@ -66,7 +70,7 @@ header{max-width:1100px}
 .bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:4px}
 #progBar{height:100%;width:0;background:var(--acc);border-radius:99px;transition:width .3s}
 .sheetwrap{width:100%}
-#preview{cursor:pointer;touch-action:none}
+#preview{cursor:pointer;touch-action:pan-y}
 .grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
 @media (max-width:760px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .card{padding:8px;border-radius:12px;gap:8px;transition:transform .15s,box-shadow .15s,border-color .15s}
@@ -104,3 +108,5 @@ main,header,footer{max-width:1600px}
 .card .row{gap:3px;flex-wrap:nowrap}
 .card .row .small{flex:1;padding:3px 2px;font-size:14px;line-height:1.2}
 .chip{font-size:10px;padding:0 6px;margin-left:4px}
+
+dialog{max-height:92vh;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}

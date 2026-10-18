@@ -130,7 +130,9 @@
           <label><input type="radio" name="fit" value="cover" id="fitFill"> Fill the page (crop)</label>
           <label><input type="radio" name="fit" value="contain" id="fitWhole"> Show the whole picture</label></fieldset>
         <label class="f">Zoom <input type="range" id="edZoom" min="1" max="4" step="0.01" value="1" aria-label="Zoom"></label>
-        <div class="row"><button type="button" id="edRot">Rotate 90&deg;</button><button type="button" id="edReset">Reset</button></div>
+        <div class="row"><button type="button" id="edRot">Rotate 90&deg;</button><button type="button" id="edReset">Reset</button>
+          <button type="button" id="edMove" class="touchonly" aria-pressed="false">Move with finger: off</button></div>
+        <div class="row dpad" role="group" aria-label="Nudge the picture"><button type="button" id="edL" aria-label="Move picture left">&#9664;</button><button type="button" id="edU" aria-label="Move picture up">&#9650;</button><button type="button" id="edD" aria-label="Move picture down">&#9660;</button><button type="button" id="edR" aria-label="Move picture right">&#9654;</button></div>
         <label class="f">Caption <textarea id="edCaption" rows="2" maxlength="200"></textarea></label>
       </div>
       <div id="textCtl" hidden>

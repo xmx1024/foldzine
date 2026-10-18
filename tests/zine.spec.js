@@ -246,3 +246,32 @@ test('pages and print sheet are both visible without scrolling on common laptop 
     expect(r.grid.height).toBeGreaterThan(200);
   }
 });
+
+test('touch: the canvases never trap scrolling', async ({ page }) => {
+  const ta = sel => page.evaluate(s => getComputedStyle(document.querySelector(s)).touchAction, sel);
+  expect(await ta('#preview')).toBe('pan-y');                                  // vertical swipes scroll the page
+  await page.locator('.card').nth(0).locator('.ed').click();
+  expect(await ta('#edCanvas')).toBe('pan-y');                                 // picture page: scrolls by default
+  await page.evaluate(() => document.getElementById('edMove').click());        // explicit "Move with finger" mode
+  expect(await ta('#edCanvas')).toBe('none');
+  await page.evaluate(() => document.getElementById('edMove').click());
+  await page.check('#modeText');
+  expect(await ta('#edCanvas')).toBe('auto');                                  // text page: no gestures at all
+});
+
+test('touch: a swipe over the preview does not swap pages, a tap opens the editor', async ({ browser }) => {
+  const ctx = await browser.newContext({ hasTouch: true, viewport: { width: 390, height: 800 } });
+  const page = await ctx.newPage(); await page.goto('/index.html'); await page.waitForSelector('#preview[data-ready="1"]');
+  await page.evaluate(() => { panels.forEach((p, i) => { p.mode = 'text'; p.text = 'p' + (i + 1); }); buildGrid(); });
+  await page.locator('#preview').scrollIntoViewIfNeeded();
+  const b = await page.locator('#preview').boundingBox();
+  await page.touchscreen.tap(b.x + b.width * 0.9, b.y + b.height * 0.75);     // page 1
+  await expect(page.locator('#edTitle')).toContainText('Page 1');
+  await page.click('#edDone');
+  expect(await page.evaluate(() => panels.map(p => p.text).join(','))).toBe('p1,p2,p3,p4,p5,p6,p7,p8');
+  // the editor dialog fits the phone screen and scrolls instead of overflowing it
+  await page.locator('.card').nth(6).locator('.ed').click();
+  const d = await page.evaluate(() => { const e = document.getElementById('editor'); return { h: e.getBoundingClientRect().height, vh: innerHeight, canvasH: document.getElementById('edCanvas').getBoundingClientRect().height }; });
+  expect(d.h).toBeLessThanOrEqual(d.vh); expect(d.canvasH).toBeLessThanOrEqual(d.vh * 0.47);
+  await ctx.close();
+});

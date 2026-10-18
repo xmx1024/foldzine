@@ -264,7 +264,9 @@ function previewCell(e) {
   cv.addEventListener('pointermove', e => {
     const page = previewCell(e);
     if (pv.down) {
-      if (!pv.down.moved && Math.hypot(e.clientX - pv.down.x, e.clientY - pv.down.y) > 8) { pv.down.moved = true; pv.from = pv.down.page; }
+      const far = Math.hypot(e.clientX - pv.down.x, e.clientY - pv.down.y) > 8;
+      if (far && e.pointerType === 'touch') { pv.down = null; return; }                 // a finger swipe is scrolling the page, not a tap
+      if (!pv.down.moved && far) { pv.down.moved = true; pv.from = pv.down.page; }
       pv.over = page;
     }
     pv.hover = page; schedulePreview();
@@ -320,7 +322,7 @@ $('clearBtn').addEventListener('click', e => {
 }));
 
 // ---------- editor dialog ----------
-const ed = { dlg: $('editor'), cv: $('edCanvas'), i: 0, drag: null };
+const ed = { dlg: $('editor'), cv: $('edCanvas'), i: 0, drag: null, moveMode: false };
 function P() { return panels[ed.i]; }
 function openEditor(i) {
   ed.i = i; const p = P();
@@ -332,6 +334,7 @@ function syncEditor() {
   ed.cv.width = 360; ed.cv.height = Math.round(360 / asp);
   $('modePhoto').checked = p.mode === 'photo'; $('modeText').checked = p.mode === 'text';
   $('photoCtl').hidden = p.mode !== 'photo'; $('textCtl').hidden = p.mode !== 'text';
+  ed.cv.classList.toggle('textpage', p.mode === 'text'); setMoveMode(false);
   $('fitFill').checked = p.fit === 'cover'; $('fitWhole').checked = p.fit === 'contain';
   $('edZoom').value = p.zoom; $('edCaption').value = p.caption;
   $('edText').value = p.text; $('edFont').value = p.font; $('edSize').value = p.size; $('edAlign').value = p.align;
@@ -360,6 +363,10 @@ $('fileOne').addEventListener('change', async e => {
 });
 $('edDone').addEventListener('click', () => ed.dlg.close());
 ed.dlg.addEventListener('close', () => { refresh(ed.i); grid.children[ed.i]?.querySelector('.thumbbtn')?.focus(); });
+// touch: swipes scroll the dialog unless 'Move with finger' is on; mouse drags always move the picture
+function setMoveMode(on) { ed.moveMode = on; ed.cv.classList.toggle('moving', on); const b = $('edMove'); b.setAttribute('aria-pressed', String(on)); b.textContent = 'Move with finger: ' + (on ? 'on' : 'off'); }
+$('edMove').addEventListener('click', () => setMoveMode(!ed.moveMode));
+for (const [id, dx, dy] of [['edL', -12, 0], ['edR', 12, 0], ['edU', 0, -12], ['edD', 0, 12]]) $(id).addEventListener('click', () => { if (P().mode === 'photo') pan(dx, dy); });
 // drag to pan, wheel to zoom, arrow keys to nudge
 function boxNow() { return captionLayout(ed.cv.getContext('2d'), ed.cv.width, ed.cv.height, P(), opts()).box; }
 function pan(dx, dy) {                    // dx, dy in canvas pixels
@@ -367,7 +374,7 @@ function pan(dx, dy) {                    // dx, dy in canvas pixels
   p.px = clamp(p.px + dx / box.w, -lim.x / box.w, lim.x / box.w); p.py = clamp(p.py + dy / box.h, -lim.y / box.h, lim.y / box.h);
   edChanged();
 }
-ed.cv.addEventListener('pointerdown', e => { if (P().mode !== 'photo') return; ed.drag = { x: e.clientX, y: e.clientY }; ed.cv.setPointerCapture(e.pointerId); });
+ed.cv.addEventListener('pointerdown', e => { if (P().mode !== 'photo' || (e.pointerType === 'touch' && !ed.moveMode)) return; ed.drag = { x: e.clientX, y: e.clientY }; ed.cv.setPointerCapture(e.pointerId); });
 ed.cv.addEventListener('pointermove', e => {
   if (!ed.drag) return; const k = ed.cv.width / ed.cv.getBoundingClientRect().width;
   pan((e.clientX - ed.drag.x) * k, (e.clientY - ed.drag.y) * k); ed.drag = { x: e.clientX, y: e.clientY };
