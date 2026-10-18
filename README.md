@@ -6,6 +6,7 @@ A small static web app that turns up to eight pictures into a printable one-shee
 Runs entirely in the browser (no server code, no uploads, no accounts) and works offline after the first load.
 
 - Pictures or text on every page: drop, pick or paste photos; zoom, pan and rotate each one; captions; text pages with font, size, alignment and colours
+- Pages and the print sheet sit side by side and fit the screen without scrolling (stacked on phones); click a panel in the sheet to edit it, drag one onto another to swap
 - Reorder with the arrow buttons (works on touch and keyboard) or drag the handle with a mouse
 - Autosaves in the browser (IndexedDB, this device only); Save/Open project files; photos over 4096 px are downscaled on load
 - Paper: US Letter, A4, A3 (landscape); margin, paper and caption colours; optional fold and cut guides

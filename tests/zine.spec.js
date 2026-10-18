@@ -182,3 +182,67 @@ test('tampered saved data is cleaned, not trusted', async ({ page }) => {
   expect(await page.evaluate(() => ({ paper: document.getElementById('paper').value, margin: document.getElementById('margin').value, bg: document.getElementById('bg').value, z: panels[0].zoom, rot: panels[0].rot, font: panels[0].font, size: panels[0].size, pbg: panels[0].pbg, text: panels[0].text })))
     .toEqual({ paper: 'letter', margin: '0.03', bg: '#ffffff', z: 4, rot: 0, font: 'sans', size: 'm', pbg: null, text: 'ok' });
 });
+
+// ---- interactive preview and engagement features ----
+async function cellPoint(page, col, row) {
+  await page.waitForSelector('#preview[data-ready="1"]');
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));   // let the first draw settle
+  const b = await page.locator('#preview').boundingBox();
+  return { x: b.x + b.width * (col + 0.5) / 4, y: b.y + b.height * (row + 0.5) / 2 };
+}
+test('preview: clicking a panel opens the editor for that page (top row is 5 4 3 2, bottom 6 7 8 1)', async ({ page }) => {
+  const expectPage = { '0,0': 5, '1,0': 4, '2,0': 3, '3,0': 2, '0,1': 6, '1,1': 7, '2,1': 8, '3,1': 1 };
+  for (const [k, n] of Object.entries(expectPage)) {
+    const [c, r] = k.split(',').map(Number), p = await cellPoint(page, c, r);
+    await page.mouse.click(p.x, p.y);
+    await expect(page.locator('#edTitle')).toContainText('Page ' + n);
+    await page.click('#edDone'); await expect(page.locator('#editor')).not.toBeVisible();
+  }
+});
+
+test('preview: dragging one panel onto another swaps those pages', async ({ page }) => {
+  await page.evaluate(() => { panels.forEach((p, i) => { p.mode = 'text'; p.text = 'p' + (i + 1); }); buildGrid(); });
+  const from = await cellPoint(page, 3, 1), to = await cellPoint(page, 1, 0);    // page 1 -> page 4
+  await page.mouse.move(from.x, from.y); await page.mouse.down(); await page.mouse.move((from.x + to.x) / 2, (from.y + to.y) / 2, { steps: 5 }); await page.mouse.move(to.x, to.y, { steps: 5 }); await page.mouse.up();
+  expect(await page.evaluate(() => panels.map(p => p.text).join(','))).toBe('p4,p2,p3,p1,p5,p6,p7,p8');
+  await expect(page.locator('#editor')).not.toBeVisible();                        // a drag must not also open the editor
+  await expect(page.locator('#status')).toContainText('Swapped page 1 and page 4');
+});
+
+test('progress bar and empty states follow the content', async ({ page }) => {
+  await expect(page.locator('#progText')).toHaveText('0 of 8 pages filled');
+  await expect(page.locator('.card.empty')).toHaveCount(8);
+  await addImages(page, 'file', 3);
+  await expect(page.locator('#progText')).toHaveText('3 of 8 pages filled');
+  await expect(page.locator('.card.empty')).toHaveCount(5);
+  expect(await page.evaluate(() => document.getElementById('progBar').style.width)).toBe('37.5%');
+});
+
+test('preview is large and sharp: canvas is at least as wide as its display size', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.reload();
+  await page.waitForSelector('#preview[data-ready="1"]');
+  const m = await page.evaluate(() => { const c = document.getElementById('preview'); return { css: c.getBoundingClientRect().width, px: c.width }; });
+  expect(m.css).toBeGreaterThan(600); expect(m.px).toBeGreaterThanOrEqual(Math.floor(m.css));
+});
+
+test('files dropped on the pages area fill the next free pages', async ({ page }) => {
+  await page.evaluate(async () => {
+    const dt = new DataTransfer(); for (let i = 0; i < 2; i++) { const c = document.createElement('canvas'); c.width = 400; c.height = 300; c.getContext('2d').fillRect(0, 0, 400, 300); dt.items.add(new File([await new Promise(r => c.toBlob(r, 'image/png'))], 'd' + i + '.png', { type: 'image/png' })); }
+    document.getElementById('grid').dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+  });
+  await expect.poll(() => loaded(page)).toBe(2);
+});
+
+test('pages and print sheet are both visible without scrolling on common laptop screens', async ({ page }) => {
+  for (const [w, h] of [[1280, 720], [1440, 900], [1920, 1080]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.reload(); await page.waitForSelector('#preview[data-ready="1"]');
+    const r = await page.evaluate(() => { const q = s => document.querySelector(s).getBoundingClientRect(); return { pages: q('#pagesPanel'), sheet: q('#sheetPanel'), grid: q('#grid'), preview: q('#preview'), vh: innerHeight, vw: innerWidth }; });
+    expect(r.pages.bottom, `${w}x${h} pages panel`).toBeLessThanOrEqual(r.vh);
+    expect(r.sheet.bottom, `${w}x${h} sheet panel`).toBeLessThanOrEqual(r.vh);
+    expect(r.preview.right).toBeLessThanOrEqual(r.vw);
+    expect(r.pages.right).toBeLessThanOrEqual(r.sheet.left + 1);                  // side by side
+    expect(r.grid.height).toBeGreaterThan(200);
+  }
+});

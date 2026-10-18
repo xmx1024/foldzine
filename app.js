@@ -167,16 +167,18 @@ function sheetSize(dpi) {
   return [Math.round(w * k), Math.round(h * k)];
 }
 function pageLabel(i) { return 'Page ' + (i + 1) + (i === 0 ? ' (front cover)' : i === 7 ? ' (back cover)' : ''); }
+const roleOf = i => i === 0 ? 'Cover' : i === 7 ? 'Back' : 'Inside';
+const isFilled = p => p.mode === 'text' ? !!p.text.trim() : !!(p.img || p.caption.trim());
 function buildGrid(focus) {
   grid.innerHTML = '';
   const asp = panelAspect();
   panels.forEach((p, i) => {
     const card = document.createElement('div'); card.className = 'card'; card.dataset.i = i;
     card.innerHTML = `<div class="top"><span class="lbl"></span><span class="handle" draggable="true" aria-hidden="true" title="Drag to reorder">&#8942;&#8942;</span></div>
-      <button type="button" class="thumbbtn"><canvas class="thumb" width="220"></canvas></button>
-      <div class="row"><button type="button" class="small mv l">&#9664;</button><button type="button" class="small ed">Edit</button><button type="button" class="small mv r">&#9654;</button><button type="button" class="small rm">Clear</button></div>`;
-    const cv = card.querySelector('.thumb'); cv.height = Math.round(220 / asp);
-    card.querySelector('.lbl').textContent = pageLabel(i);
+      <button type="button" class="thumbbtn"><canvas class="thumb" width="300"></canvas></button>
+      <div class="row"><button type="button" class="small mv l" title="Move earlier">&#9664;</button><button type="button" class="small ed" title="Edit this page">&#9998;</button><button type="button" class="small mv r" title="Move later">&#9654;</button><button type="button" class="small rm" title="Clear this page">&#10005;</button></div>`;
+    const cv = card.querySelector('.thumb'); cv.height = Math.round(300 / asp);
+    const lbl = card.querySelector('.lbl'); lbl.textContent = 'Page ' + (i + 1); const chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = roleOf(i); lbl.appendChild(chip);
     const tb = card.querySelector('.thumbbtn'); tb.setAttribute('aria-label', 'Edit ' + pageLabel(i));
     tb.addEventListener('click', () => openEditor(i));
     const ed = card.querySelector('.ed'); ed.setAttribute('aria-label', 'Edit ' + pageLabel(i)); ed.addEventListener('click', () => openEditor(i));
@@ -194,6 +196,7 @@ function buildGrid(focus) {
     card.addEventListener('drop', e => {
       e.preventDefault(); card.classList.remove('over');
       const files = [...(e.dataTransfer.files || [])].filter(f => f.type.startsWith('image/'));     // type is re-checked in prepareImage
+      e.stopPropagation();
       if (files.length) { loadInto(i, files); return; }
       if (dragFrom !== null && dragFrom !== i) { [panels[dragFrom], panels[i]] = [panels[i], panels[dragFrom]]; buildGrid(); refresh(); changed(); }
     });
@@ -210,21 +213,74 @@ function movePanel(i, d) {
 }
 function drawThumb(i) {
   const cv = grid.children[i]?.querySelector('.thumb'); if (!cv) return;
-  const o = opts(), ctx = cv.getContext('2d'), p = panels[i];
+  const o = opts(), ctx = cv.getContext('2d'), p = panels[i], filled = isFilled(p);
   drawPanel(ctx, cv.width, cv.height, p, o);
-  if (p.mode === 'photo' && !p.img && !p.caption.trim()) {
-    ctx.fillStyle = '#9b9585'; ctx.font = '16px system-ui'; ctx.textAlign = 'center'; ctx.fillText('+ add picture', cv.width / 2, cv.height / 2);
+  grid.children[i].classList.toggle('empty', !filled);
+  if (!filled) {                                      // friendly empty state
+    const cx = cv.width / 2, cy = cv.height / 2 - 14, r = cv.width * 0.11;
+    ctx.save(); ctx.strokeStyle = '#9b9585'; ctx.fillStyle = '#9b9585'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - r / 2, cy); ctx.lineTo(cx + r / 2, cy); ctx.moveTo(cx, cy - r / 2); ctx.lineTo(cx, cy + r / 2); ctx.stroke();
+    ctx.font = '600 ' + Math.round(cv.width * 0.06) + 'px system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Add a picture', cx, cy + r + 30); ctx.font = Math.round(cv.width * 0.048) + 'px system-ui, sans-serif'; ctx.fillText('or click to write text', cx, cy + r + 56); ctx.restore();
   }
 }
 let raf = 0;
 function refresh(i) {
   if (typeof i === 'number') drawThumb(i); else for (let k = 0; k < N; k++) drawThumb(k);
-  cancelAnimationFrame(raf); raf = requestAnimationFrame(drawPreview);
+  const n = panels.filter(isFilled).length;
+  $('progText').textContent = n + ' of ' + N + ' pages filled'; $('progBar').style.width = (n / N * 100) + '%';
+  schedulePreview();
 }
+function schedulePreview() { cancelAnimationFrame(raf); raf = requestAnimationFrame(drawPreview); }
+const pv = { hover: 0, from: 0, over: 0, down: null };     // page numbers (1-8) for the interactive preview
 function drawPreview() {
-  const cv = $('preview'), [W, H] = sheetSize(100);
-  cv.width = W; cv.height = H; drawSheet(cv.getContext('2d'), W, H, { ...opts(), guides: true });
+  const cv = $('preview'), [pwIn, phIn] = PAPER[$('paper').value] || PAPER.letter, wrap = cv.parentElement, ratio = pwIn / phIn;
+  const sideBySide = window.matchMedia('(min-width:1000px) and (min-height:620px)').matches;
+  const availW = Math.max(200, wrap.clientWidth || 800), availH = sideBySide ? Math.max(150, wrap.clientHeight) : Infinity;
+  const cssW = Math.floor(Math.min(availW, availH * ratio)), cssH = Math.floor(cssW / ratio), dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const W = Math.min(2600, Math.round(cssW * dpr)), H = Math.round(W / ratio);
+  cv.style.width = cssW + 'px'; cv.style.height = cssH + 'px'; cv.dataset.ready = '1';
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d'); drawSheet(ctx, W, H, { ...opts(), guides: true });
+  const cw = W / 4, ch = H / 2, rad = Math.max(12, W * 0.016);
+  LAYOUT.forEach((row, r) => row.forEach((page, c) => {
+    const x = c * cw, y = r * ch;
+    if (pv.from === page) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x, y, cw, ch); }
+    if (pv.over === page && pv.from && pv.from !== page) { ctx.fillStyle = 'rgba(214,56,31,.28)'; ctx.fillRect(x, y, cw, ch); ctx.strokeStyle = '#d6381f'; ctx.lineWidth = Math.max(3, W / 400); ctx.strokeRect(x + 2, y + 2, cw - 4, ch - 4); }
+    else if (pv.hover === page && !pv.from) { ctx.fillStyle = 'rgba(214,56,31,.14)'; ctx.fillRect(x, y, cw, ch); ctx.strokeStyle = '#d6381f'; ctx.lineWidth = Math.max(2, W / 600); ctx.strokeRect(x + 2, y + 2, cw - 4, ch - 4); }
+    const bx = x + rad + 8, by = y + rad + 8;                  // page-number badge (always upright)
+    ctx.beginPath(); ctx.arc(bx, by, rad, 0, Math.PI * 2); ctx.fillStyle = pv.hover === page ? '#d6381f' : 'rgba(17,17,17,.78)'; ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = '700 ' + Math.round(rad * 1.15) + 'px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(page), bx, by + 1);
+    if (pv.hover === page && !pv.from) { ctx.font = '600 ' + Math.round(rad * 0.85) + 'px system-ui, sans-serif'; ctx.fillStyle = 'rgba(17,17,17,.85)'; ctx.fillText('Click to edit, drag to swap', x + cw / 2, y + ch - rad); }
+  }));
 }
+function previewCell(e) {
+  const rc = $('preview').getBoundingClientRect(), c = clamp(Math.floor((e.clientX - rc.left) / rc.width * 4), 0, 3), r = clamp(Math.floor((e.clientY - rc.top) / rc.height * 2), 0, 1);
+  return LAYOUT[r][c];
+}
+(() => {
+  const cv = $('preview');
+  cv.addEventListener('pointerdown', e => { pv.down = { page: previewCell(e), x: e.clientX, y: e.clientY, moved: false }; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointermove', e => {
+    const page = previewCell(e);
+    if (pv.down) {
+      if (!pv.down.moved && Math.hypot(e.clientX - pv.down.x, e.clientY - pv.down.y) > 8) { pv.down.moved = true; pv.from = pv.down.page; }
+      pv.over = page;
+    }
+    pv.hover = page; schedulePreview();
+  });
+  cv.addEventListener('pointerup', e => {
+    const d = pv.down, over = previewCell(e); pv.down = null; const from = pv.from; pv.from = pv.over = 0;
+    if (d && d.moved && from && over && from !== over) {
+      const a = from - 1, b = over - 1; [panels[a], panels[b]] = [panels[b], panels[a]]; buildGrid(); changed(); status('Swapped page ' + from + ' and page ' + over);
+    } else if (d && !d.moved) openEditor(d.page - 1);
+    schedulePreview();
+  });
+  cv.addEventListener('pointercancel', () => { pv.down = null; pv.from = pv.over = 0; schedulePreview(); });
+  cv.addEventListener('pointerleave', () => { if (!pv.down) { pv.hover = 0; schedulePreview(); } });
+  if ('ResizeObserver' in window) new ResizeObserver(() => schedulePreview()).observe(cv.parentElement);
+  window.addEventListener('resize', schedulePreview);
+})();
 let statusTimer = 0;
 function status(t) { $('status').textContent = t; clearTimeout(statusTimer); if (t) statusTimer = setTimeout(() => { $('status').textContent = ''; }, 12000); }
 
@@ -237,9 +293,18 @@ async function loadInto(start, files) {
   refresh(); changed();
   if (!failed && files.length > N - start) status('Only ' + (N - start) + ' pages were free; the rest were skipped.');
 }
+const hasFiles = e => [...(e.dataTransfer?.types || [])].includes('Files');
+grid.addEventListener('dragover', e => { if (hasFiles(e)) { e.preventDefault(); grid.classList.add('filedrop'); } });
+grid.addEventListener('dragleave', e => { if (!grid.contains(e.relatedTarget)) grid.classList.remove('filedrop'); });
+grid.addEventListener('drop', e => {
+  grid.classList.remove('filedrop'); const files = [...(e.dataTransfer.files || [])].filter(f => f.type.startsWith('image/'));
+  if (!files.length) return; e.preventDefault();
+  let first = panels.findIndex(p => !isFilled(p)); if (first < 0) first = 0; loadInto(first, files);
+});
+['dragover', 'drop'].forEach(t => window.addEventListener(t, e => { if (hasFiles(e)) e.preventDefault(); }));   // a missed drop must not open the file in the tab
 $('file').addEventListener('change', e => {
   const files = [...e.target.files]; if (!files.length) return;
-  let first = panels.findIndex(p => p.mode === 'photo' && !p.img); if (first < 0) first = 0;
+  let first = panels.findIndex(p => !isFilled(p)); if (first < 0) first = 0;
   loadInto(first, files);
 });
 $('addBtn').addEventListener('click', () => { $('file').value = ''; $('file').click(); });
